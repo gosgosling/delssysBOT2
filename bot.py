@@ -1,7 +1,7 @@
 import os
 import logging
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
 
 # Настройка логирования
 logging.basicConfig(
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Получаем токен бота из переменной окружения
 TOKEN = os.getenv('BOT_TOKEN')
 
-async def delete_system_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def delete_system_messages(update: Update, context: CallbackContext):
     """Удаляет системные сообщения в группах"""
     
     # Проверяем, что сообщение из группы
@@ -21,7 +21,7 @@ async def delete_system_messages(update: Update, context: ContextTypes.DEFAULT_T
         return
     
     # Проверяем, что у бота есть права на удаление сообщений
-    bot_member = await context.bot.get_chat_member(
+    bot_member = context.bot.get_chat_member(
         update.effective_chat.id, 
         context.bot.id
     )
@@ -46,14 +46,14 @@ async def delete_system_messages(update: Update, context: ContextTypes.DEFAULT_T
         message.pinned_message):
         
         try:
-            await message.delete()
+            message.delete()
             logger.info(f"Удалено системное сообщение в чате {update.effective_chat.id}")
         except Exception as e:
             logger.error(f"Ошибка при удалении сообщения: {e}")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update: Update, context: CallbackContext):
     """Обработчик команды /start"""
-    await update.message.reply_text(
+    update.message.reply_text(
         "Привет! Я бот для удаления системных сообщений в группах. "
         "Добавьте меня в группу и дайте права на удаление сообщений."
     )
@@ -64,15 +64,17 @@ def main():
         logger.error("Не установлен BOT_TOKEN!")
         return
     
-    # Создаем приложение
-    application = Application.builder().token(TOKEN).build()
+    # Создаем updater
+    updater = Updater(token=TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
     
     # Добавляем обработчики
-    application.add_handler(MessageHandler(filters.ALL, delete_system_messages))
+    dispatcher.add_handler(MessageHandler(Filters.all, delete_system_messages))
     
     # Запускаем бота
     logger.info("Бот запущен...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     main() 
